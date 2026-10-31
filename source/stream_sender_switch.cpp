@@ -13,6 +13,10 @@ extern "C" {
 namespace ams::ssl::mitm::stream {
 namespace {
 constexpr std::size_t SocketPoolSize = 256_KB;
+// Atmosphere adds 28 to this API priority, giving kernel priority 40.
+constexpr s32 SenderThreadPriority = 12;
+static_assert(os::HighestThreadPriority <= SenderThreadPriority &&
+              SenderThreadPriority <= os::LowestThreadPriority);
 alignas(os::MemoryPageSize) u8 g_socket_pool[SocketPoolSize];
 // Pump may hold a full data frame alongside hello/loss control frames.
 alignas(os::ThreadStackAlignment) u8 g_sender_stack[64_KB];
@@ -139,9 +143,9 @@ bool StartSender(std::uint32_t ip, std::uint16_t port,
     g_destination_ipv4 = ip;
     g_destination_port = port;
     g_session_id = session_id;
-    const Result created =
-        os::CreateThread(&g_sender_thread, SenderThread, nullptr,
-                         g_sender_stack, sizeof(g_sender_stack), 40);
+    const Result created = os::CreateThread(
+        &g_sender_thread, SenderThread, nullptr, g_sender_stack,
+        sizeof(g_sender_stack), SenderThreadPriority);
     if (R_FAILED(created))
         return false;
     os::StartThread(&g_sender_thread);
