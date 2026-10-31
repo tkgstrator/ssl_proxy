@@ -117,6 +117,9 @@ jobs:
     needs: [prepare, host-tests]
     if: needs.prepare.outputs.publish == 'true'
     runs-on: ubuntu-24.04
+    # prepare accepts only a successful push to this repository's current master.
+    # workflow_run otherwise has read-only cache access, so this job cannot seed it.
+    cache-mode: write
     container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
     outputs:
       source_sha: ${{ steps.source.outputs.sha }}
@@ -139,17 +142,61 @@ jobs:
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Verify pinned submodules
+        id: pins
         run: |
-          test "$(git -C Atmosphere-libs rev-parse HEAD)" = "cf48d23375cf36742876f4b014971b2ebabc6dc8"
-          test "$(git -C .deps/libnx rev-parse HEAD)" = "b156b4774fb2df7b93402169509266da7547fc4c"
+          atmosphere_sha="$(git -C Atmosphere-libs rev-parse HEAD)"
+          libnx_sha="$(git -C .deps/libnx rev-parse HEAD)"
+          test "$atmosphere_sha" = "cf48d23375cf36742876f4b014971b2ebabc6dc8"
+          test "$libnx_sha" = "b156b4774fb2df7b93402169509266da7547fc4c"
+          echo "atmosphere_sha=$atmosphere_sha" >> "$GITHUB_OUTPUT"
+          echo "libnx_sha=$libnx_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Restore pinned libnx
+        id: libnx_cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: /opt/devkitpro/libnx
+          key: ssl-proxy-libnx-v1-${{ steps.pins.outputs.libnx_sha }}-${{ hashFiles('.github/workflows/deployment.yaml') }}
 
       - name: Build pinned libnx
+        if: steps.libnx_cache.outputs.cache-hit != 'true'
+        env:
+          PINNED_LIBNX_SHA: ${{ steps.pins.outputs.libnx_sha }}
         run: |
           make -C .deps/libnx PREFIX=aarch64-none-elf-
           make -C .deps/libnx install
+          printf '%s\n' "$PINNED_LIBNX_SHA" > /opt/devkitpro/libnx/.ssl-proxy-libnx-sha
+
+      - name: Verify installed pinned libnx
+        env:
+          PINNED_LIBNX_SHA: ${{ steps.pins.outputs.libnx_sha }}
+        run: |
+          test "$(cat /opt/devkitpro/libnx/.ssl-proxy-libnx-sha)" = "$PINNED_LIBNX_SHA"
+          test -s /opt/devkitpro/libnx/lib/libnx.a
+          /opt/devkitpro/devkitA64/bin/aarch64-none-elf-ar t /opt/devkitpro/libnx/lib/libnx.a > /dev/null
+
+      - name: Restore pinned libstratosphere
+        id: stratosphere_cache
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: Atmosphere-libs/libstratosphere/lib/nintendo_nx_arm64_armv8a/release/libstratosphere.a
+          key: ssl-proxy-stratosphere-v1-${{ steps.pins.outputs.atmosphere_sha }}-${{ steps.pins.outputs.libnx_sha }}-${{ hashFiles('.github/workflows/deployment.yaml', 'Makefile') }}
 
       - name: Build sysmodule and package
-        run: make PREFIX=aarch64-none-elf-
+        env:
+          STRATOSPHERE_CACHE_HIT: ${{ steps.stratosphere_cache.outputs.cache-hit }}
+        run: |
+          if [[ "$STRATOSPHERE_CACHE_HIT" == 'true' ]]; then
+            make PREFIX=aarch64-none-elf- ATMOSPHERE_CHECKED_LIBSTRATOSPHERE=1
+          else
+            make PREFIX=aarch64-none-elf-
+          fi
+
+      - name: Verify pinned libstratosphere
+        run: |
+          archive=Atmosphere-libs/libstratosphere/lib/nintendo_nx_arm64_armv8a/release/libstratosphere.a
+          test -s "$archive"
+          /opt/devkitpro/devkitA64/bin/aarch64-none-elf-ar t "$archive" > /dev/null
 
       - name: Verify package contents
         run: |

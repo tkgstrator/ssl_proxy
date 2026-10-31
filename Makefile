@@ -167,7 +167,11 @@ dependencies:
 	git submodule update --init --recursive
 
 build: dependencies
+ifeq ($(ATMOSPHERE_CHECKED_LIBSTRATOSPHERE),1)
+	@test -s Atmosphere-libs/libstratosphere/lib/nintendo_nx_arm64_armv8a/release/libstratosphere.a
+else
 	$(MAKE) -C Atmosphere-libs/libstratosphere nx_release
+endif
 	$(MAKE) MODULE_BUILD=1 all
 
 pack: build

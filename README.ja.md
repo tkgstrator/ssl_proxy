@@ -89,6 +89,8 @@ make
 
 [`deployment.yaml`](.github/workflows/deployment.yaml) は、`master` へのプッシュに対する Integration の成功後に起動します。成功したコミットを固定サブモジュールでビルドし、ホストテスト、ZIP の内容、SHA-256 チェックサムを検証して GitHub Release を公開します。タグの版数は `source/ssl_proxy_version.h` から取得します。次のリリースには版数の更新が必要で、既存のタグや公開済みリリースは上書きしません。
 
+リリースビルドでは、サブモジュールのコミットとビルド設定が一致する場合、固定版の `libnx` と `libstratosphere` をキャッシュから再利用します。キャッシュがなければ依存ライブラリを再ビルドし、`ssl_proxy` と配布ZIPはリリースごとにビルド・検証します。
+
 ## 出典とライセンス
 
 本リポジトリは、コミット [`7dd6d036feb7bd4bdaca364dc589752bde9e36cf`](https://github.com/nookingtons/network_mitm/commit/7dd6d036feb7bd4bdaca364dc589752bde9e36cf) の [nookingtons/network_mitm](https://github.com/nookingtons/network_mitm) をベースとした独立したソーススナップショットであり、[UPSTREAM.md](UPSTREAM.md) に記載されているローカルのストリーミング拡張が追加されています。アップストリームの Git 履歴は含まれていません。ソースファイル内の原著作権表示はすべて維持されています。GPL-2.0-only の下でライセンスされています（[LICENSE](LICENSE) を参照）。

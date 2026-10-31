@@ -89,6 +89,8 @@ The release ZIP archive contains `atmosphere/contents/430053534C505801/exefs.nsp
 
 [`deployment.yaml`](.github/workflows/deployment.yaml) starts after a successful Integration run for a push to `master`. It runs host tests, builds the exact successful commit with pinned submodules, verifies the ZIP archive and SHA-256 checksum, and publishes a GitHub Release. The version tag comes from `source/ssl_proxy_version.h`. A later release requires a version bump; the workflow never replaces an existing tag or published release.
 
+Release builds reuse cached pinned `libnx` and `libstratosphere` libraries when the submodule commits and build workflow match. A cache miss rebuilds both dependencies; `ssl_proxy` and the release package are built and verified on every release.
+
 ## Origin and license
 
 This repository is an independent snapshot based on [nookingtons/network_mitm](https://github.com/nookingtons/network_mitm) at commit [`7dd6d036feb7bd4bdaca364dc589752bde9e36cf`](https://github.com/nookingtons/network_mitm/commit/7dd6d036feb7bd4bdaca364dc589752bde9e36cf), incorporating subsequent local streaming additions detailed in [UPSTREAM.md](UPSTREAM.md). Upstream Git commit history is omitted. Original copyright notices remain preserved in source files. Licensed under GPL-2.0-only; see [LICENSE](LICENSE).
