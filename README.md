@@ -8,12 +8,12 @@ The sysmodule does not replace certificates or modify SSL verification settings.
 
 ## Configuration
 
-Add the following block to `sd:/atmosphere/config/system_settings.ini`, configuring the **current** IPv4 address and port of your receiver host:
+Add the following block to `sd:/atmosphere/config/system_settings.ini`, configuring the **current** IPv4 address and port of your receiver host (e.g. replacing `<RECEIVER_IP>` with `192.168.1.50`):
 
 ```ini
 [ssl_proxy]
 enabled = u8!0x1
-export_host = str!192.168.1.119
+export_host = str!<RECEIVER_IP>
 export_port = u32!0x99E8
 ```
 
@@ -27,9 +27,9 @@ Example of launching an NMTS v1 receiver with InkScope:
 
 ```sh
 cargo run -p inkscope --locked -- receive-mitm \
-  --bind-ip 192.168.1.119 --port 39400 \
-  --allowed-peer 192.168.1.159 \
-  --output-dir "$HOME/captures/mitm-$(date +%Y%m%d-%H%M%S)"
+  --bind-ip <RECEIVER_IP> --port 39400 \
+  --allowed-peer <SWITCH_IP> \
+  --output-dir "./captures/mitm-$(date +%Y%m%d-%H%M%S)"
 ```
 
 A compliant receiver typically generates:
@@ -85,9 +85,9 @@ The release ZIP archive contains `atmosphere/contents/4200000000000666/exefs.nsp
 
 ## CI and deployment
 
-[`integration.yaml`](.github/workflows/integration.yaml) runs host unit tests and builds the Switch package on pull requests and pushes to `master`, validating the resulting ZIP archive contents.
+[`integration.yaml`](.github/workflows/integration.yaml) checks commit messages and formatting of changed C/C++ files on pull requests and pushes to `master`. It does not build the Switch package.
 
-[`deployment.yaml`](.github/workflows/deployment.yaml) triggers via manual workflow dispatch targeting an existing version tag. It builds the tag cleanly, validates the source commit and package checksum, and creates or updates a **draft** GitHub Release without modifying published releases.
+[`deployment.yaml`](.github/workflows/deployment.yaml) starts after a successful Integration run for a push to `master`. It runs host tests, builds the exact successful commit with pinned submodules, verifies the ZIP archive and SHA-256 checksum, and publishes a GitHub Release. The version tag comes from `ssl_proxy/include/ssl_proxy_version.h`. A later release requires a version bump; the workflow never replaces an existing tag or published release.
 
 ## Origin and license
 

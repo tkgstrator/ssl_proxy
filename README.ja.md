@@ -8,12 +8,12 @@
 
 ## 設定
 
-`sd:/atmosphere/config/system_settings.ini` に以下の設定を追加し、受信側ホストの**現在の** IPv4 アドレスと待受ポート番号を指定します:
+`sd:/atmosphere/config/system_settings.ini` に以下の設定を追加し、受信側ホストの**現在の** IPv4 アドレス（`<RECEIVER_IP>` を実際の受信機 IP アドレス、例: `192.168.1.50` に置き換え）と待受ポート番号を指定します:
 
 ```ini
 [ssl_proxy]
 enabled = u8!0x1
-export_host = str!192.168.1.119
+export_host = str!<RECEIVER_IP>
 export_port = u32!0x99E8
 ```
 
@@ -23,13 +23,13 @@ export_port = u32!0x99E8
 
 データ送信には TCP 上の NMTS v1 プロトコルが使用されます。このプロトコルを実装した任意の受信機（レシーバー）でキャプチャデータを受信・保存できます。InkScope の使用は必須ではありませんが、NMTS v1 受信機の一例として [InkScope](https://github.com/tkgstrator/InkScope) に `receive-mitm` コマンドが用意されています。
 
-InkScope を使用した受信機の起動例:
+InkScope を使用した受信機の起動例（`<RECEIVER_IP>` は受信機の IP、`<SWITCH_IP>` は Switch の IP に置き換え）:
 
 ```sh
 cargo run -p inkscope --locked -- receive-mitm \
-  --bind-ip 192.168.1.119 --port 39400 \
-  --allowed-peer 192.168.1.159 \
-  --output-dir "$HOME/captures/mitm-$(date +%Y%m%d-%H%M%S)"
+  --bind-ip <RECEIVER_IP> --port 39400 \
+  --allowed-peer <SWITCH_IP> \
+  --output-dir "./captures/mitm-$(date +%Y%m%d-%H%M%S)"
 ```
 
 準拠する受信機は通常、以下のファイルを生成します:
@@ -85,9 +85,9 @@ make
 
 ## CIとデプロイ
 
-[`integration.yaml`](.github/workflows/integration.yaml) は、プルリクエストおよび `master` へのプッシュ時にホスト単体テストを実行し、Switch パッケージをビルドして生成された ZIP アーカイブの内容を検証します。
+[`integration.yaml`](.github/workflows/integration.yaml) は、プルリクエストおよび `master` へのプッシュ時にコミットメッセージと変更された C/C++ ファイルのフォーマットを検査します。Switch パッケージのビルドは行いません。
 
-[`deployment.yaml`](.github/workflows/deployment.yaml) は、既存のバージョンダグを対象に手動（workflow_dispatch）で実行されます。対象タグをクリーンビルドし、ソースコミットとパッケージのチェックサムを検証した上で、公開済みリリースを上書きすることなく**下書き（Draft）** の GitHub Release を作成または更新します。
+[`deployment.yaml`](.github/workflows/deployment.yaml) は、`master` へのプッシュに対する Integration の成功後に起動します。成功したコミットを固定サブモジュールでビルドし、ホストテスト、ZIP の内容、SHA-256 チェックサムを検証して GitHub Release を公開します。タグの版数は `ssl_proxy/include/ssl_proxy_version.h` から取得します。次のリリースには版数の更新が必要で、既存のタグや公開済みリリースは上書きしません。
 
 ## 出典とライセンス
 
