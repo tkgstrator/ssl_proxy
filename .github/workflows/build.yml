@@ -1,0 +1,46 @@
+name: Build
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
+
+    defaults:
+      run:
+        shell: 'bash'
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set git safe.directory for the working directory
+        run : git config --system --add safe.directory "$PWD"
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+
+      - name: Fetch pinned dependencies
+        run: ./scripts/fetch-dependencies.sh
+
+      - name: Build libnx
+        run: |
+          make -C .deps/libnx PREFIX="ccache aarch64-none-elf-"
+          make -C .deps/libnx install
+
+      - name: Build
+        run: make PREFIX="ccache aarch64-none-elf-"
+
+      - name: Uploading executable out directory
+        uses: actions/upload-artifact@v7
+        with:
+          name: ssl_proxy_raw_output.zip
+          path: network_mitm/out/*
+          if-no-files-found: error
+          compression-level: 9
+
+      - name: Uploading release
+        uses: actions/upload-artifact@v7
+        with:
+          name: ssl_proxy.zip
+          path: out/*.zip
+          if-no-files-found: error
+          compression-level: 0
