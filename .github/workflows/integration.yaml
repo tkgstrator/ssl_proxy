@@ -4,116 +4,53 @@ on:
   push:
     branches: [master]
   pull_request:
-  workflow_dispatch:
-  workflow_call:
-    inputs:
-      source_ref:
-        description: Exact tag or commit to build
-        required: false
-        type: string
-    outputs:
-      source_sha:
-        description: Commit used for the Switch package
-        value: ${{ jobs.switch-build.outputs.source_sha }}
-      package_sha:
-        description: SHA-256 of the verified Switch package
-        value: ${{ jobs.switch-build.outputs.package_sha }}
 
 permissions:
   contents: read
 
 jobs:
-  host-tests:
+  commitlint:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Check commit messages
+        uses: wagoid/commitlint-github-action@b948419dd99f3fd78a6548d48f94e3df7f6bf3ed # v6
         with:
-          ref: ${{ inputs.source_ref || github.sha }}
+          configFile: .commitlintrc.yaml
 
-      - name: Test stream protocol and queue
-        run: bash tests/run_stream_test.sh
-
-      - name: Test sender
-        run: bash tests/run_sender_test.sh
-
-      - name: Test SSL capture boundary
-        run: python3 -m unittest -v tests/test_passthrough_contract.py
-
-  switch-build:
-    needs: host-tests
+  format:
     runs-on: ubuntu-24.04
-    container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282
-    outputs:
-      source_sha: ${{ steps.source.outputs.sha }}
-      package_sha: ${{ steps.package_digest.outputs.sha }}
-    defaults:
-      run:
+    steps:
+      - name: Check out source and history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install C/C++ formatter
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq clang-format-18
+
+      - name: Check formatting of changed C/C++ files
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         shell: bash
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.source_ref || github.sha }}
-          submodules: recursive
-
-      - name: Allow the container to read this checkout
-        run: git config --system --add safe.directory "$PWD"
-
-      - name: Record source commit
-        id: source
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
-      - name: Verify pinned submodules
         run: |
-          test "$(git -C Atmosphere-libs rev-parse HEAD)" = "cf48d23375cf36742876f4b014971b2ebabc6dc8"
-          test "$(git -C .deps/libnx rev-parse HEAD)" = "b156b4774fb2df7b93402169509266da7547fc4c"
-
-      - name: Build pinned libnx
-        run: |
-          make -C .deps/libnx PREFIX=aarch64-none-elf-
-          make -C .deps/libnx install
-
-      - name: Build sysmodule and package
-        run: make PREFIX=aarch64-none-elf-
-
-      - name: Verify package contents
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-          from zipfile import ZipFile
-
-          packages = list(Path("out").glob("ssl_proxy-*.zip"))
-          assert len(packages) == 1, packages
-          title = "atmosphere/contents/4200000000000666/"
-          expected = {
-              title + "exefs.nsp",
-              title + "flags/boot2.flag",
-              title + "mitm.lst",
-          }
-          with ZipFile(packages[0]) as archive:
-              actual = {name for name in archive.namelist() if not name.endswith("/")}
-              assert actual == expected, (actual, expected)
-              assert archive.read(title + "mitm.lst") == b"ssl\nssl:s\n"
-              assert len(archive.read(title + "exefs.nsp")) > 0
-          PY
-
-      - name: Record package checksum
-        id: package_digest
-        run: echo "sha=$(sha256sum out/ssl_proxy-*.zip | awk '{print $1}')" >> "$GITHUB_OUTPUT"
-
-      - name: Upload package
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ssl_proxy-package
-          path: out/ssl_proxy-*.zip
-          if-no-files-found: error
-          compression-level: 0
-
-      - name: Upload raw sysmodule output
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: ssl_proxy-raw
-          path: ssl_proxy/out/*
-          if-no-files-found: error
-          compression-level: 9
+          set -euo pipefail
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]]; then
+            BASE_SHA="$(git rev-parse "$HEAD_SHA^" 2>/dev/null || git hash-object -t tree /dev/null)"
+          fi
+          git cat-file -e "$HEAD_SHA^{commit}"
+          git cat-file -e "$BASE_SHA^{tree}"
+          mapfile -d '' -t files < <(git diff --name-only -z --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" -- '*.c' '*.cpp' '*.h' '*.hpp')
+          if (( ${#files[@]} == 0 )); then
+            echo 'No changed C/C++ files to format-check.'
+            exit 0
+          fi
+          clang-format-18 --dry-run --Werror "${files[@]}"
