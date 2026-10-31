@@ -64,8 +64,10 @@
              out),                                                             \
         (out))
 
-AMS_SF_DEFINE_INTERFACE(ams::ssl::sf, ISslContextForSystem,
-                        AMS_INTERFACE_ISSLCONTEXTFORSYSTEM_INFO, 0x153C59F4)
+AMS_SF_DEFINE_MITM_INTERFACE(ams::ssl::sf, ISslContextForSystem,
+                             AMS_INTERFACE_ISSLCONTEXTFORSYSTEM_INFO,
+                             0x153C59F4)
+static_assert(ams::sf::IsMitmServiceObject<ams::ssl::sf::ISslContextForSystem>);
 
 namespace ams::ssl::sf::impl {
 class SslContextForSystemImpl {

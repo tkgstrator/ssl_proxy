@@ -139,8 +139,9 @@
                        (const ams::sf::InBuffer &session_ticket),              \
                        (session_ticket), hos::Version_20_0_0)
 
-AMS_SF_DEFINE_INTERFACE(ams::ssl::sf, ISslConnection,
-                        AMS_INTERFACE_ISSLCONNECTION_INFO, 0xA9B8D9AA)
+AMS_SF_DEFINE_MITM_INTERFACE(ams::ssl::sf, ISslConnection,
+                             AMS_INTERFACE_ISSLCONNECTION_INFO, 0xA9B8D9AA)
+static_assert(ams::sf::IsMitmServiceObject<ams::ssl::sf::ISslConnection>);
 
 namespace ams::ssl::sf::impl {
 namespace stream = ::ams::ssl::mitm::stream;

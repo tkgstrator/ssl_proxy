@@ -22,6 +22,10 @@ Result SslServiceImpl::CreateContext(
     const ams::ssl::sf::SslVersion &version,
     const ams::sf::ClientProcessId &client_pid,
     ams::sf::Out<ams::sf::SharedPointer<ams::ssl::sf::ISslContext>> out) {
+    if (!serviceIsDomain(m_forward_service.get())) {
+        return sm::mitm::ResultShouldForwardToSession();
+    }
+
     Service out_tmp;
     R_TRY(sslCreateContext_sfMitm(
         m_forward_service.get(), static_cast<u32>(version),

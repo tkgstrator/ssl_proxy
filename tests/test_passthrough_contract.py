@@ -75,9 +75,34 @@ class CaptureLengthTest(unittest.TestCase):
                     depth += (source[end] == "{") - (source[end] == "}")
                     end += 1
                 body = source[opening + 1 : end - 1]
-                if arguments.strip() and "ResultShouldForwardToSession" in body:
+                if (
+                    arguments.strip()
+                    and "ResultShouldForwardToSession" in body
+                    and "serviceIsDomain(" not in body
+                ):
                     with self.subTest(source=name, method=method):
                         self.assertIn("AMS_UNUSED(", body)
+
+    def test_non_domain_object_creation_forwards_before_creating_child(self):
+        # Non-domain out objects get ordinary sessions in Stratosphere, where
+        # a nested MITM dispatch would abort on forwarding.
+        for name, method, shim in (
+            ("ssl_service_impl.cpp", "CreateContext", "sslCreateContext_sfMitm("),
+            ("ssl_for_system_service_impl.cpp", "CreateContext", "sslsCreateContext_sfMitm("),
+            (
+                "ssl_for_system_service_impl.cpp",
+                "CreateContextForSystem",
+                "sslsCreateContextForSystem_sfMitm(",
+            ),
+        ):
+            with self.subTest(source=name, method=method):
+                source = (SOURCE / name).read_text()
+                start = source.index(f"::{method}(")
+                guard = source.index("if (!serviceIsDomain(m_forward_service.get()))", start)
+                forward = source.index("return sm::mitm::ResultShouldForwardToSession();", guard)
+                child = source.index(shim, start)
+                self.assertLess(guard, forward)
+                self.assertLess(forward, child)
 
 
 if __name__ == "__main__":

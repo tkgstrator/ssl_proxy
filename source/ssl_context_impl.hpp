@@ -75,8 +75,9 @@
         (val, params, cert, key, out_cert_size, out_key_size),                 \
         hos::Version_16_0_0)
 
-AMS_SF_DEFINE_INTERFACE(ams::ssl::sf, ISslContext,
-                        AMS_INTERFACE_ISSLCONTEXT_INFO, 0x46DF8B0C)
+AMS_SF_DEFINE_MITM_INTERFACE(ams::ssl::sf, ISslContext,
+                             AMS_INTERFACE_ISSLCONTEXT_INFO, 0x46DF8B0C)
+static_assert(ams::sf::IsMitmServiceObject<ams::ssl::sf::ISslContext>);
 
 namespace ams::ssl::sf::impl {
 class SslContextImpl {
