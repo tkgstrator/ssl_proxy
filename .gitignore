@@ -71,11 +71,6 @@ dkms.conf
 **/out
 **/build
 
-# Pinned build dependencies are fetched as source archives, not submodules.
-/Atmosphere-libs/
-/.deps/
-/.fetch-dependencies.*/
-
 # Host-side Python contract tests.
 __pycache__/
 *.pyc

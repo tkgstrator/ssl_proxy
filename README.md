@@ -37,14 +37,14 @@ The `ssl_proxy/ssl_proxy.json` NPDM manifest still has the upstream broad filesy
 
 ## Build
 
-The build fetches source archives at fixed commits:
+The build uses Git submodules pinned to fixed commits:
 
 | Dependency | Commit |
 | --- | --- |
 | [Atmosphere-libs](https://github.com/Atmosphere-NX/Atmosphere-libs) | `cf48d23375cf36742876f4b014971b2ebabc6dc8` |
 | [libnx](https://github.com/switchbrew/libnx) | `b156b4774fb2df7b93402169509266da7547fc4c` |
 
-`./scripts/fetch-dependencies.sh` places Atmosphere-libs at `./Atmosphere-libs` and libnx at `./.deps/libnx`. Both paths are ignored by Git. Existing directories with an unknown revision cause the script to stop. The build image is pinned to `devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282`. Source revisions and the image are pinned; external package availability can still change, so this is not a fully reproducible build.
+Clone with `git clone --recurse-submodules`, or run `git submodule update --init --recursive` in an existing checkout. `Atmosphere-libs` and `.deps/libnx` are recorded as gitlinks in this repository. The build image is pinned to `devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282`. Source revisions and the image are pinned; external package availability can still change, so this is not a fully reproducible build.
 
 ### Docker
 
@@ -54,20 +54,20 @@ With Docker Compose installed, run:
 docker compose run --rm devkit
 ```
 
-The pinned image already contains the required devkitPro tools and `switch-libjpeg-turbo`. The container fetches the pinned sources, builds and installs pinned libnx inside the container, then runs `make`. The first run requires network access.
+The pinned image already contains the required devkitPro tools and `switch-libjpeg-turbo`. The container initializes the pinned submodules, builds and installs pinned libnx inside the container, then runs `make`. The first run requires network access.
 
 ### Local devkitPro
 
 Install devkitPro with `switch-dev` and `switch-libjpeg-turbo`, and provide the `DEVKITPRO` and `DEVKITA64` environment variables. Then run:
 
 ```sh
-./scripts/fetch-dependencies.sh
+git submodule update --init --recursive
 make -C .deps/libnx PREFIX=aarch64-none-elf-
 make -C .deps/libnx install
 make
 ```
 
-The libnx install command updates the local devkitPro installation. `make` fetches missing source archives but expects the pinned libnx to have been installed in that toolchain.
+The libnx install command updates the local devkitPro installation. `make` also initializes submodules when needed, but expects the pinned libnx to have been installed in that toolchain.
 
 The release ZIP contains `atmosphere/contents/4200000000000666/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` naming both `ssl` and `ssl:s`. Here `exefs.nsp` is the **sysmodule** executable, not a game ExeFS/IPS patch. Title ID `4200000000000666` is the same as the old `network_mitm` sysmodule, so they cannot coexist; this artifact replaces the old module at that path. Building it does not place it on a Switch or prove runtime operation.
 

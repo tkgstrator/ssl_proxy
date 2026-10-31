@@ -55,6 +55,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.source_ref || github.sha }}
+          submodules: recursive
 
       - name: Allow the container to read this checkout
         run: git config --system --add safe.directory "$PWD"
@@ -63,8 +64,10 @@ jobs:
         id: source
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - name: Fetch pinned source dependencies
-        run: ./scripts/fetch-dependencies.sh
+      - name: Verify pinned submodules
+        run: |
+          test "$(git -C Atmosphere-libs rev-parse HEAD)" = "cf48d23375cf36742876f4b014971b2ebabc6dc8"
+          test "$(git -C .deps/libnx rev-parse HEAD)" = "b156b4774fb2df7b93402169509266da7547fc4c"
 
       - name: Build pinned libnx
         run: |

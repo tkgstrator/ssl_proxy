@@ -19,7 +19,7 @@ SSL_PROXY_VERSION := $(SSL_PROXY_VERSION_MAJOR).$(SSL_PROXY_VERSION_MINOR).$(SSL
 all: dist
 
 dependencies:
-	./scripts/fetch-dependencies.sh
+	git submodule update --init --recursive
 
 build: dependencies
 	$(MAKE) -C Atmosphere-libs/libstratosphere nx_release

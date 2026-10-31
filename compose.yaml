@@ -5,7 +5,8 @@ services:
       - ".:/code"
     working_dir: /code
     command: >-
-      bash -lc './scripts/fetch-dependencies.sh &&
+      bash -lc 'git config --global --add safe.directory /code &&
+      git submodule update --init --recursive &&
       make -C .deps/libnx PREFIX=aarch64-none-elf- &&
       make -C .deps/libnx install &&
       make PREFIX=aarch64-none-elf-'
