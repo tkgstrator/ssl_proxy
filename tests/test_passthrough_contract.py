@@ -8,7 +8,7 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "network_mitm" / "source"
+SOURCE = ROOT / "ssl_proxy" / "source"
 
 
 class CaptureLengthTest(unittest.TestCase):

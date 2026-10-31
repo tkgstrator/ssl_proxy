@@ -29,7 +29,7 @@ namespace impl {
             __AMS_THREAD_PRIORITY__,                                           \
             "ams." #__AMS_MODULE__ "." #__AMS_THREAD_NAME__}
 
-AMS_DEFINE_SYSTEM_THREAD(10, network_mitm, Main);
+AMS_DEFINE_SYSTEM_THREAD(10, ssl_proxy, Main);
 #undef AMS_DEFINE_SYSTEM_THREAD
 } // namespace impl
 
@@ -157,9 +157,9 @@ void ProcessForServerOnAllThreads() {
 
 void Main() {
     os::SetThreadNamePointer(os::GetCurrentThread(),
-                             AMS_GET_SYSTEM_THREAD_NAME(network_mitm, Main));
+                             AMS_GET_SYSTEM_THREAD_NAME(ssl_proxy, Main));
     AMS_ASSERT(os::GetThreadPriority(os::GetCurrentThread()) ==
-               AMS_GET_SYSTEM_THREAD_PRIORITY(network_mitm, Main));
+               AMS_GET_SYSTEM_THREAD_PRIORITY(ssl_proxy, Main));
 
     u8 enabled = 0;
     const bool setting_present =

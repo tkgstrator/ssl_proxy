@@ -1,4 +1,4 @@
-#include "../network_mitm/source/impl/stream/stream_sender.hpp"
+#include "../ssl_proxy/source/impl/stream/stream_sender.hpp"
 #include <cassert>
 #include <cstring>
 #include <vector>

@@ -33,11 +33,11 @@ The receiver creates private `ssl.pcap` and `ssl-events.jsonl` files. The PCAP u
 
 NMTS v1 frames use a four-byte big-endian length, a 52-byte header with `NMTS` magic and version, and at most 8192 data bytes per frame. Frame types are `hello`, `data`, and `loss`; directions distinguish client-to-server `Write` from server-to-client `Read`. The sender uses a bounded queue and reconnects in its own thread. This stream is separate from InkScope's ordinary Ethernet packet capture and does not require a GameKey or PiaKey.
 
-The `network_mitm/network_mitm.json` NPDM manifest still has the upstream broad filesystem and service permissions. Its permissions have not yet been narrowed through controlled runtime testing, although this code has no SD capture or certificate path.
+The `ssl_proxy/ssl_proxy.json` NPDM manifest still has the upstream broad filesystem and service permissions. Its permissions have not yet been narrowed through controlled runtime testing, although this code has no SD capture or certificate path.
 
 ## Build
 
-The build fetches source archives at fixed commits, without Git submodules or nested Git repositories:
+The build fetches source archives at fixed commits:
 
 | Dependency | Commit |
 | --- | --- |
@@ -70,6 +70,10 @@ make
 The libnx install command updates the local devkitPro installation. `make` fetches missing source archives but expects the pinned libnx to have been installed in that toolchain.
 
 The release ZIP contains `atmosphere/contents/4200000000000666/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` naming both `ssl` and `ssl:s`. Here `exefs.nsp` is the **sysmodule** executable, not a game ExeFS/IPS patch. Title ID `4200000000000666` is the same as the old `network_mitm` sysmodule, so they cannot coexist; this artifact replaces the old module at that path. Building it does not place it on a Switch or prove runtime operation.
+
+## CI and deployment
+
+`integration.yaml` runs the host tests and Switch package build for pull requests and pushes to `master`, then checks the ZIP contents before saving build artifacts. `deployment.yaml` runs only when manually dispatched with an existing version tag. It builds that tag in the same workflow run, verifies the source commit and package checksum, and creates or updates a **draft** GitHub Release. It refuses to alter an already published release.
 
 ## Origin and license
 

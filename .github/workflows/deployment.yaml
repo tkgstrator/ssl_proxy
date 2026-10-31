@@ -1,0 +1,114 @@
+name: Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to build and attach to a draft release
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  validate-tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Validate version tag
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Expected an existing version tag such as v0.2.11" >&2
+            exit 1
+          fi
+
+  build:
+    needs: validate-tag
+    uses: ./.github/workflows/integration.yaml
+    with:
+      source_ref: ${{ inputs.tag }}
+    permissions:
+      contents: read
+
+  draft-release:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the requested tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - name: Verify built source matches the requested tag
+        env:
+          BUILT_SHA: ${{ needs.build.outputs.source_sha }}
+        run: |
+          test -n "$BUILT_SHA"
+          test "$(git rev-parse HEAD)" = "$BUILT_SHA"
+
+      - name: Refuse to change an existing published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          probe="$RUNNER_TEMP/ssl_proxy_release_probe"
+          if gh api -i "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" > "$probe" 2>/dev/null; then
+            if [[ "$(gh release view "$RELEASE_TAG" --json isDraft --jq .isDraft)" != "true" ]]; then
+              echo "A published release already exists for $RELEASE_TAG" >&2
+              exit 1
+            fi
+          elif ! head -1 "$probe" | grep -Eq '^HTTP/[^ ]+ 404 '; then
+            echo "Could not determine whether a release already exists" >&2
+            exit 1
+          fi
+
+      - name: Download this run's package
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ssl_proxy-package
+          path: dist
+
+      - name: Verify package and write checksum
+        env:
+          BUILT_PACKAGE_SHA: ${{ needs.build.outputs.package_sha }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile
+
+          packages = list(Path("dist").glob("ssl_proxy-*.zip"))
+          assert len(packages) == 1, packages
+          title = "atmosphere/contents/4200000000000666/"
+          expected = {
+              title + "exefs.nsp",
+              title + "flags/boot2.flag",
+              title + "mitm.lst",
+          }
+          with ZipFile(packages[0]) as archive:
+              actual = {name for name in archive.namelist() if not name.endswith("/")}
+              assert actual == expected, (actual, expected)
+              assert archive.read(title + "mitm.lst") == b"ssl\nssl:s\n"
+              assert len(archive.read(title + "exefs.nsp")) > 0
+          PY
+          test -n "$BUILT_PACKAGE_SHA"
+          actual_sha="$(sha256sum dist/ssl_proxy-*.zip | awk '{print $1}')"
+          test "$actual_sha" = "$BUILT_PACKAGE_SHA"
+          cd dist
+          sha256sum ssl_proxy-*.zip > SHA256SUMS
+          test -s SHA256SUMS
+
+      - name: Create or update draft GitHub Release
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          tag_name: ${{ inputs.tag }}
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            dist/ssl_proxy-*.zip
+            dist/SHA256SUMS

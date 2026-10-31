@@ -1,6 +1,6 @@
-#include "../network_mitm/source/impl/stream/stream_config.hpp"
-#include "../network_mitm/source/impl/stream/stream_protocol.hpp"
-#include "../network_mitm/source/impl/stream/stream_queue.hpp"
+#include "../ssl_proxy/source/impl/stream/stream_config.hpp"
+#include "../ssl_proxy/source/impl/stream/stream_protocol.hpp"
+#include "../ssl_proxy/source/impl/stream/stream_queue.hpp"
 #include <cassert>
 #include <cstring>
 #include <atomic>
