@@ -1,4 +1,4 @@
-#include "../ssl_proxy/source/impl/stream/stream_sender.hpp"
+#include "../source/stream_sender.hpp"
 #include <cassert>
 #include <cstring>
 #include <vector>
@@ -14,9 +14,13 @@ struct FakeTransport final : Transport {
     int calls = 0;
     std::vector<std::uint8_t> received;
 
-    bool Connect() override { ++connect_count; return available; }
+    bool Connect() override {
+        ++connect_count;
+        return available;
+    }
     std::ptrdiff_t Send(const void *data, std::size_t size) override {
-        if (calls++ == fail_after) return -1;
+        if (calls++ == fail_after)
+            return -1;
         const auto *p = static_cast<const std::uint8_t *>(data);
         const auto n = size < max_chunk ? size : max_chunk;
         received.insert(received.end(), p, p + n);
@@ -57,12 +61,16 @@ int main() {
     assert(unavailable.received.empty());
     Frame full{};
     assert(EncodeFrame(full, DataEvent(), payload, 3));
-    for (std::size_t i = 0; i < Queue::Capacity; ++i) assert(unavailable_queue.TryPush(full));
-    assert(EnqueueIo(unavailable_queue, DataEvent(), payload, 3).dropped_events == 1);
+    for (std::size_t i = 0; i < Queue::Capacity; ++i)
+        assert(unavailable_queue.TryPush(full));
+    assert(
+        EnqueueIo(unavailable_queue, DataEvent(), payload, 3).dropped_events ==
+        1);
     unavailable.available = true;
     assert(waiting.Pump());
     assert(unavailable.received.size() >= 56 + 72);
-    assert(unavailable.received[56 + 10] == 3); // cumulative loss precedes queued data
+    assert(unavailable.received[56 + 10] ==
+           3); // cumulative loss precedes queued data
     assert(unavailable.received[56 + 63] == 1);
 
     Queue interrupted_queue;
@@ -70,8 +78,11 @@ int main() {
     interrupted.max_chunk = 2;
     Sender reconnecting(interrupted_queue, interrupted, 101);
     assert(reconnecting.Pump());
-    assert(EnqueueIo(interrupted_queue, DataEvent(), payload, 3).accepted_events == 1);
-    interrupted.fail_after = interrupted.calls + 1; // fail after a partial data send
+    assert(
+        EnqueueIo(interrupted_queue, DataEvent(), payload, 3).accepted_events ==
+        1);
+    interrupted.fail_after =
+        interrupted.calls + 1; // fail after a partial data send
     assert(!reconnecting.Pump());
     assert(interrupted.close_count == 1);
     assert(interrupted_queue.Snapshot().dropped_events == 1);

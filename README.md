@@ -47,7 +47,7 @@ NMTS v1 frames consist of:
 
 Frame types include `hello`, `data`, and `loss`. Direction flags differentiate client-to-server (`Write`) from server-to-client (`Read`) transmissions. The sysmodule uses a bounded in-memory queue and handles reconnection asynchronously on a dedicated worker thread. This stream is independent of standard Ethernet capture tools and requires neither GameKey nor PiaKey.
 
-The `ssl_proxy/ssl_proxy.json` NPDM manifest currently retains upstream service and filesystem permissions; these permissions have not yet been narrowed through controlled runtime testing.
+The `ssl_proxy.json` NPDM manifest currently retains upstream service and filesystem permissions; these permissions have not yet been narrowed through controlled runtime testing.
 
 ## Build
 
@@ -81,13 +81,13 @@ make -C .deps/libnx install
 make
 ```
 
-The release ZIP archive contains `atmosphere/contents/4200000000000666/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` targeting both `ssl` and `ssl:s`. Here `exefs.nsp` is the sysmodule binary itself, not an application patch. Title ID `4200000000000666` matches the legacy `network_mitm` module and will replace it if installed at the same path.
+The release ZIP archive contains `atmosphere/contents/430053534C505801/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` targeting both `ssl` and `ssl:s`. Here `exefs.nsp` is the sysmodule binary itself, not an application patch. Program ID `430053534C505801` is distinct from the legacy `network_mitm` ID. Disable the old module before using this one because both intercept the same `ssl` services.
 
 ## CI and deployment
 
 [`integration.yaml`](.github/workflows/integration.yaml) checks commit messages and formatting of changed C/C++ files on pull requests and pushes to `master`. It does not build the Switch package.
 
-[`deployment.yaml`](.github/workflows/deployment.yaml) starts after a successful Integration run for a push to `master`. It runs host tests, builds the exact successful commit with pinned submodules, verifies the ZIP archive and SHA-256 checksum, and publishes a GitHub Release. The version tag comes from `ssl_proxy/include/ssl_proxy_version.h`. A later release requires a version bump; the workflow never replaces an existing tag or published release.
+[`deployment.yaml`](.github/workflows/deployment.yaml) starts after a successful Integration run for a push to `master`. It runs host tests, builds the exact successful commit with pinned submodules, verifies the ZIP archive and SHA-256 checksum, and publishes a GitHub Release. The version tag comes from `source/ssl_proxy_version.h`. A later release requires a version bump; the workflow never replaces an existing tag or published release.
 
 ## Origin and license
 

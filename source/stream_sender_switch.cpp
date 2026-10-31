@@ -1,9 +1,9 @@
 #include "stream_sender.hpp"
 
-#include <stratosphere.hpp>
 #include <cerrno>
 #include <netinet/in.h>
 #include <poll.h>
+#include <stratosphere.hpp>
 #include <sys/socket.h>
 
 extern "C" {
@@ -29,15 +29,18 @@ class SocketTransport final : public Transport {
     bool Connect() override {
         Close();
         m_fd = bsdSocket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
-        if (m_fd < 0) return false;
+        if (m_fd < 0)
+            return false;
         sockaddr_in address{};
         address.sin_len = sizeof(address);
         address.sin_family = AF_INET;
         address.sin_port = socket::InetHtons(m_port);
         address.sin_addr.s_addr = socket::InetHtonl(m_ip);
-        const int result = bsdConnect(m_fd,
-            reinterpret_cast<const sockaddr *>(&address), sizeof(address));
-        if (result == 0) return true;
+        const int result =
+            bsdConnect(m_fd, reinterpret_cast<const sockaddr *>(&address),
+                       sizeof(address));
+        if (result == 0)
+            return true;
         if (g_bsdErrno != EINPROGRESS && g_bsdErrno != EWOULDBLOCK) {
             Close();
             return false;
@@ -50,7 +53,8 @@ class SocketTransport final : public Transport {
         int socket_error = 0;
         socklen_t error_size = sizeof(socket_error);
         if (bsdGetSockOpt(m_fd, SOL_SOCKET, SO_ERROR, &socket_error,
-                          &error_size) != 0 || socket_error != 0) {
+                          &error_size) != 0 ||
+            socket_error != 0) {
             Close();
             return false;
         }
@@ -112,7 +116,8 @@ void SenderThread(void *) {
                 last_heartbeat_ns = now_ns;
             } else if (now_ns - last_heartbeat_ns >= 10'000'000'000ULL) {
                 healthy = sender.SendHeartbeat();
-                if (healthy) last_heartbeat_ns = now_ns;
+                if (healthy)
+                    last_heartbeat_ns = now_ns;
             }
         }
         if (healthy) {
@@ -120,7 +125,8 @@ void SenderThread(void *) {
             os::SleepThread(TimeSpan::FromMilliSeconds(10));
         } else {
             os::SleepThread(TimeSpan::FromMilliSeconds(backoff_ms));
-            if (backoff_ms < 2000) backoff_ms *= 2;
+            if (backoff_ms < 2000)
+                backoff_ms *= 2;
         }
     }
 }
@@ -128,13 +134,16 @@ void SenderThread(void *) {
 
 bool StartSender(std::uint32_t ip, std::uint16_t port,
                  std::uint64_t session_id) {
-    if (ip == 0 || port == 0) return false;
+    if (ip == 0 || port == 0)
+        return false;
     g_destination_ipv4 = ip;
     g_destination_port = port;
     g_session_id = session_id;
-    const Result created = os::CreateThread(&g_sender_thread, SenderThread,
-        nullptr, g_sender_stack, sizeof(g_sender_stack), 40);
-    if (R_FAILED(created)) return false;
+    const Result created =
+        os::CreateThread(&g_sender_thread, SenderThread, nullptr,
+                         g_sender_stack, sizeof(g_sender_stack), 40);
+    if (R_FAILED(created))
+        return false;
     os::StartThread(&g_sender_thread);
     return true;
 }

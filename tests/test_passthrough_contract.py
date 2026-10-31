@@ -8,14 +8,14 @@ import unittest
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "ssl_proxy" / "source"
+SOURCE = ROOT / "source"
 
 
 class CaptureLengthTest(unittest.TestCase):
     def test_only_positive_in_bounds_original_counts_are_exported(self):
         # These counts model a successful Read and a partially accepted Write.
         code = r'''
-            #include "networkmitm_ssl_capture_bounds.hpp"
+            #include "ssl_capture_bounds.hpp"
             using ams::ssl::sf::impl::CaptureLength;
             static_assert(CaptureLength(0, 8) == 0);
             static_assert(CaptureLength(9, 8) == 0);
@@ -38,7 +38,7 @@ class CaptureLengthTest(unittest.TestCase):
     def test_failed_io_cannot_read_count_or_enqueue(self):
         # The Switch shim cannot run on the host. Audit the IPC boundary's
         # ordering so failed calls never inspect an undefined output count.
-        source = (SOURCE / "networkmitm_ssl_connection_impl.cpp").read_text()
+        source = (SOURCE / "ssl_connection_impl.cpp").read_text()
         for method in ("Read", "Write"):
             with self.subTest(method=method):
                 start = source.index(f"SslConnectionImpl::{method}(")
@@ -57,11 +57,11 @@ class CaptureLengthTest(unittest.TestCase):
         # Target builds use -Werror. Every raw-forward handler with arguments
         # must consume them locally only as an unused marker.
         for name in (
-            "networkmitm_ssl_service_impl.cpp",
-            "networkmitm_ssl_for_system_service_impl.cpp",
-            "networkmitm_ssl_context_impl.cpp",
-            "networkmitm_ssl_context_for_system_impl.cpp",
-            "networkmitm_ssl_connection_impl.cpp",
+            "ssl_service_impl.cpp",
+            "ssl_for_system_service_impl.cpp",
+            "ssl_context_impl.cpp",
+            "ssl_context_for_system_impl.cpp",
+            "ssl_connection_impl.cpp",
         ):
             source = (SOURCE / name).read_text()
             for match in re.finditer(r"\bResult\s+\w+::(\w+)\(", source):

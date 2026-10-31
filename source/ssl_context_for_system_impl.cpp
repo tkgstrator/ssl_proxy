@@ -1,5 +1,5 @@
-#include "networkmitm_ssl_context_for_system_impl.hpp"
-#include "shim/ssl_shim.h"
+#include "ssl_context_for_system_impl.hpp"
+#include "ssl_shim.h"
 #include <stratosphere.hpp>
 
 namespace ams::ssl::sf::impl {

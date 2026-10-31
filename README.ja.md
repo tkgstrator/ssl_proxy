@@ -47,7 +47,7 @@ NMTS v1 フレームは以下の構造を持ちます:
 
 フレーム種別には `hello`、`data`、`loss` があります。方向フラグによりクライアントからサーバーへの送信（`Write`）とサーバーからクライアントへの受信（`Read`）を区別します。sysmodule は容量制限付きのインメモリキューを使用し、専用のワーカースレッド上で非同期に再接続を処理します。このストリームは標準の Ethernet パケットキャプチャとは独立しており、GameKey や PiaKey は不要です。
 
-`ssl_proxy/ssl_proxy.json` の NPDM マニフェストは、現時点ではアップストリームの広範なサービス権限およびファイルシステム権限をそのまま保持しています。実機での制御されたランタイムテストによる権限の最小化は今後の課題です。
+`ssl_proxy.json` の NPDM マニフェストは、現時点ではアップストリームの広範なサービス権限およびファイルシステム権限をそのまま保持しています。実機での制御されたランタイムテストによる権限の最小化は今後の課題です。
 
 ## ビルド
 
@@ -81,13 +81,13 @@ make -C .deps/libnx install
 make
 ```
 
-リリース ZIP アーカイブには `atmosphere/contents/4200000000000666/exefs.nsp`、`flags/boot2.flag`、および `ssl` と `ssl:s` を指定した `mitm.lst` が含まれます。ここで `exefs.nsp` はゲームパッチではなく sysmodule 本体の実行可能バイナリです。Title ID `4200000000000666` は旧来の `network_mitm` モジュールと同一であり、同一パスに配置した場合は上書きされます。
+リリース ZIP アーカイブには `atmosphere/contents/430053534C505801/exefs.nsp`、`flags/boot2.flag`、および `ssl` と `ssl:s` を指定した `mitm.lst` が含まれます。ここで `exefs.nsp` はゲームパッチではなく sysmodule 本体の実行可能バイナリです。Program ID `430053534C505801` は旧来の `network_mitm` とは別です。両者は同じ `ssl` サービスを仲介するため、新しいモジュールを使う前に旧モジュールを無効にしてください。
 
 ## CIとデプロイ
 
 [`integration.yaml`](.github/workflows/integration.yaml) は、プルリクエストおよび `master` へのプッシュ時にコミットメッセージと変更された C/C++ ファイルのフォーマットを検査します。Switch パッケージのビルドは行いません。
 
-[`deployment.yaml`](.github/workflows/deployment.yaml) は、`master` へのプッシュに対する Integration の成功後に起動します。成功したコミットを固定サブモジュールでビルドし、ホストテスト、ZIP の内容、SHA-256 チェックサムを検証して GitHub Release を公開します。タグの版数は `ssl_proxy/include/ssl_proxy_version.h` から取得します。次のリリースには版数の更新が必要で、既存のタグや公開済みリリースは上書きしません。
+[`deployment.yaml`](.github/workflows/deployment.yaml) は、`master` へのプッシュに対する Integration の成功後に起動します。成功したコミットを固定サブモジュールでビルドし、ホストテスト、ZIP の内容、SHA-256 チェックサムを検証して GitHub Release を公開します。タグの版数は `source/ssl_proxy_version.h` から取得します。次のリリースには版数の更新が必要で、既存のタグや公開済みリリースは上書きしません。
 
 ## 出典とライセンス
 

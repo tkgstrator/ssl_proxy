@@ -13,10 +13,10 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "networkmitm_ssl_for_system_service_impl.hpp"
-#include "networkmitm_ssl_service_impl.hpp"
-#include "impl/stream/stream_config.hpp"
-#include "impl/stream/stream_sender.hpp"
+#include "ssl_for_system_service_impl.hpp"
+#include "ssl_service_impl.hpp"
+#include "stream_config.hpp"
+#include "stream_sender.hpp"
 #include <stratosphere.hpp>
 
 namespace ams {
@@ -162,10 +162,9 @@ void Main() {
                AMS_GET_SYSTEM_THREAD_PRIORITY(ssl_proxy, Main));
 
     u8 enabled = 0;
-    const bool setting_present =
-        settings::fwdbg::GetSettingsItemValue(
-            std::addressof(enabled), sizeof(enabled), "ssl_proxy",
-            "enabled") == sizeof(enabled);
+    const bool setting_present = settings::fwdbg::GetSettingsItemValue(
+                                     std::addressof(enabled), sizeof(enabled),
+                                     "ssl_proxy", "enabled") == sizeof(enabled);
     char export_host[16]{};
     u32 export_port = 0;
     const size_t host_size = settings::fwdbg::GetSettingsItemValue(
@@ -174,21 +173,23 @@ void Main() {
         std::addressof(export_port), sizeof(export_port), "ssl_proxy",
         "export_port");
 
-    stream::g_stream_config = stream::ParseConfig(
-        setting_present && enabled != 0, export_host,
-        host_size <= sizeof(export_host) ? host_size : 0, export_port,
-        port_size == sizeof(export_port));
+    stream::g_stream_config =
+        stream::ParseConfig(setting_present && enabled != 0, export_host,
+                            host_size <= sizeof(export_host) ? host_size : 0,
+                            export_port, port_size == sizeof(export_port));
     if (!stream::g_stream_config.active) {
-        AMS_LOG("ssl_proxy inactive: configure enabled, export_host and export_port.\n");
+        AMS_LOG("ssl_proxy inactive: configure enabled, export_host and "
+                "export_port.\n");
         return;
     }
 
-    stream::g_stream_session_id = static_cast<u64>(
-        os::GetSystemTick().ToTimeSpan().GetNanoSeconds());
+    stream::g_stream_session_id =
+        static_cast<u64>(os::GetSystemTick().ToTimeSpan().GetNanoSeconds());
     if (!stream::StartSender(stream::g_stream_config.destination_ipv4,
                              stream::g_stream_config.destination_port,
                              stream::g_stream_session_id)) {
-        AMS_LOG("ssl_proxy sender unavailable; SSL service remains unchanged.\n");
+        AMS_LOG(
+            "ssl_proxy sender unavailable; SSL service remains unchanged.\n");
         return;
     }
 
@@ -198,9 +199,9 @@ void Main() {
             PortIndex_SslMitm, MitmSslServiceName)));
     if (hos::GetVersion() >= hos::Version_15_0_0) {
         R_ABORT_UNLESS(
-            (g_server_manager_for_system.RegisterMitmServer<
-                SslServiceForSystemImpl>(PortIndex_SslSystemMitm,
-                                         MitmSslSystemServiceName)));
+            (g_server_manager_for_system
+                 .RegisterMitmServer<SslServiceForSystemImpl>(
+                     PortIndex_SslSystemMitm, MitmSslSystemServiceName)));
     }
 
     AMS_LOG("ssl_proxy accepting SSL requests.\n");

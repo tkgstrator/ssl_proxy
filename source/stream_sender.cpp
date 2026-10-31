@@ -15,8 +15,8 @@ void Sender::Disconnect() {
 bool Sender::SendFrame(const Frame &frame) {
     std::size_t offset = 0;
     while (offset < frame.size) {
-        const auto sent = m_transport.Send(frame.bytes + offset,
-                                           frame.size - offset);
+        const auto sent =
+            m_transport.Send(frame.bytes + offset, frame.size - offset);
         if (sent <= 0 || static_cast<std::size_t>(sent) > frame.size - offset) {
             Disconnect();
             return false;
@@ -27,10 +27,11 @@ bool Sender::SendFrame(const Frame &frame) {
 }
 
 bool Sender::SendHeartbeat() {
-    if (!m_connected) return false;
+    if (!m_connected)
+        return false;
     Frame hello{};
-    const Event event{FrameType::Hello, Direction::None, m_session_id,
-                      0, 0, 0, 0};
+    const Event event{
+        FrameType::Hello, Direction::None, m_session_id, 0, 0, 0, 0};
     return EncodeFrame(hello, event, nullptr, 0) && SendFrame(hello);
 }
 
@@ -47,10 +48,11 @@ bool Sender::Pump() {
     const auto counters = m_queue.Snapshot();
     if (counters.dropped_events != m_reported_events ||
         counters.dropped_bytes != m_reported_bytes) {
-        const Event event{FrameType::Loss, Direction::None, m_session_id,
-                          0, 0, 0, 0};
+        const Event event{
+            FrameType::Loss, Direction::None, m_session_id, 0, 0, 0, 0};
         if (!EncodeLoss(frame, event, counters.dropped_events,
-                        counters.dropped_bytes) || !SendFrame(frame))
+                        counters.dropped_bytes) ||
+            !SendFrame(frame))
             return false;
         m_reported_events = counters.dropped_events;
         m_reported_bytes = counters.dropped_bytes;

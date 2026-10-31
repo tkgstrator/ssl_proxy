@@ -48,7 +48,7 @@ jobs:
           import re
           from pathlib import Path
 
-          header = Path('ssl_proxy/include/ssl_proxy_version.h').read_text()
+          header = Path('source/ssl_proxy_version.h').read_text()
           parts = []
           for name in ('MAJOR', 'MINOR', 'MICRO'):
               match = re.search(rf'^#define SSL_PROXY_VERSION_{name} ([0-9]+)$', header, re.MULTILINE)
@@ -147,7 +147,7 @@ jobs:
 
           packages = list(Path('out').glob('ssl_proxy-*.zip'))
           assert len(packages) == 1, packages
-          title = 'atmosphere/contents/4200000000000666/'
+          title = 'atmosphere/contents/430053534C505801/'
           expected = {
               title + 'exefs.nsp',
               title + 'flags/boot2.flag',
@@ -176,7 +176,7 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: ssl_proxy-raw
-          path: ssl_proxy/out/*
+          path: out/nintendo_nx_arm64_armv8a/release/*
           if-no-files-found: error
           compression-level: 9
 
@@ -222,7 +222,7 @@ jobs:
 
           packages = list(Path('dist').glob('ssl_proxy-*.zip'))
           assert len(packages) == 1, packages
-          title = 'atmosphere/contents/4200000000000666/'
+          title = 'atmosphere/contents/430053534C505801/'
           expected = {
               title + 'exefs.nsp',
               title + 'flags/boot2.flag',

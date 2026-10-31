@@ -7,7 +7,8 @@ namespace ams::ssl::mitm::stream {
 
 struct Config {
     bool active;
-    std::uint32_t destination_ipv4; // Network byte order represented as a host integer.
+    std::uint32_t
+        destination_ipv4; // Network byte order represented as a host integer.
     std::uint16_t destination_port;
 };
 

@@ -1,0 +1,77 @@
+/*
+ * Copyright (c) Mary Guillemard <mary@mary.zone>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms and conditions of the GNU General Public License,
+ * version 2, as published by the Free Software Foundation.
+ *
+ * This program is distributed in the hope it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+#pragma once
+#include "ssl_context_for_system_impl.hpp"
+#include "ssl_context_impl.hpp"
+#include "ssl_types.hpp"
+#include <stratosphere.hpp>
+
+#define AMS_INTERFACE_ISSLSERVICEFORSYSTEM_INFO(C, H)                          \
+    AMS_SF_METHOD_INFO(                                                        \
+        C, H, 0, Result, CreateContext,                                        \
+        (const ams::ssl::sf::SslVersion &version,                              \
+         const ams::sf::ClientProcessId &client_pid,                           \
+         ams::sf::Out<ams::sf::SharedPointer<ams::ssl::sf::ISslContext>> out), \
+        (version, client_pid, out))                                            \
+    AMS_SF_METHOD_INFO(                                                        \
+        C, H, 2, Result, GetCertificates,                                      \
+        (const ams::sf::InArray<ams::ssl::sf::CaCertificateId> &ids,           \
+         ams::sf::Out<u32> certificates_count,                                 \
+         const ams::sf::OutBuffer &certificates),                              \
+        (ids, certificates_count, certificates))                               \
+    AMS_SF_METHOD_INFO(                                                        \
+        C, H, 100, Result, CreateContextForSystem,                             \
+        (const ams::ssl::sf::SslVersion &version,                              \
+         const ams::sf::ClientProcessId &client_pid,                           \
+         ams::sf::Out<                                                         \
+             ams::sf::SharedPointer<ams::ssl::sf::ISslContextForSystem>>       \
+             out),                                                             \
+        (version, client_pid, out))
+
+AMS_SF_DEFINE_MITM_INTERFACE(ams::ssl::sf, ISslServiceForSystem,
+                             AMS_INTERFACE_ISSLSERVICEFORSYSTEM_INFO,
+                             0xA864049E)
+
+namespace ams::ssl::sf::impl {
+class SslServiceForSystemImpl : ams::sf::MitmServiceImplBase {
+  public:
+    SslServiceForSystemImpl(std::shared_ptr<::Service> &&s,
+                            const sm::MitmProcessInfo &c)
+        : MitmServiceImplBase(std::move(s), c) {}
+
+    static bool ShouldMitm(const ams::sm::MitmProcessInfo &) { return true; }
+
+    Result CreateContext(
+        const ams::ssl::sf::SslVersion &version,
+        const ams::sf::ClientProcessId &client_pid,
+        ams::sf::Out<ams::sf::SharedPointer<ams::ssl::sf::ISslContext>> out);
+    Result
+    GetCertificates(const ams::sf::InArray<ams::ssl::sf::CaCertificateId> &ids,
+                    ams::sf::Out<u32> certificates_count,
+                    const ams::sf::OutBuffer &certificates);
+    Result GetCertificateBufSize(
+        const ams::sf::InArray<ams::ssl::sf::CaCertificateId> &ids,
+        ams::sf::Out<u32> buffer_size);
+    Result CreateContextForSystem(
+        const ams::ssl::sf::SslVersion &version,
+        const ams::sf::ClientProcessId &client_pid,
+        ams::sf::Out<ams::sf::SharedPointer<ams::ssl::sf::ISslContextForSystem>>
+            out);
+};
+
+static_assert(ams::ssl::sf::IsISslServiceForSystem<
+              ams::ssl::sf::impl::SslServiceForSystemImpl>);
+} // namespace ams::ssl::sf::impl

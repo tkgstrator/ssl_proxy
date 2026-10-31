@@ -71,8 +71,7 @@ void Queue::RecordDrop(std::size_t payload_bytes) {
     RecordDrops(1, payload_bytes);
 }
 
-void Queue::RecordDrops(std::uint64_t events,
-                        std::uint64_t payload_bytes) {
+void Queue::RecordDrops(std::uint64_t events, std::uint64_t payload_bytes) {
     m_dropped_events.fetch_add(events, std::memory_order_relaxed);
     m_dropped_bytes.fetch_add(payload_bytes, std::memory_order_relaxed);
 }
@@ -91,11 +90,11 @@ EnqueueResult EnqueueIo(Queue &queue, Event event, const void *payload,
         return result;
     const auto *bytes = static_cast<const std::uint8_t *>(payload);
     for (std::size_t offset = 0; offset < payload_size;) {
-        const std::size_t chunk =
-            payload_size - offset > MaxPayloadSize ? MaxPayloadSize
-                                                   : payload_size - offset;
-        const PushStatus status = queue.TryPushEvent(
-            event, bytes ? bytes + offset : nullptr, chunk);
+        const std::size_t chunk = payload_size - offset > MaxPayloadSize
+                                      ? MaxPayloadSize
+                                      : payload_size - offset;
+        const PushStatus status =
+            queue.TryPushEvent(event, bytes ? bytes + offset : nullptr, chunk);
         if (status == PushStatus::Accepted) {
             ++result.accepted_events;
             result.accepted_bytes += chunk;
@@ -118,7 +117,6 @@ EnqueueResult EnqueueIo(Queue &queue, Event event, const void *payload,
     return result;
 }
 
-
 EnqueueResult ConnectionProducer::Enqueue(Queue &queue, Event event,
                                           const void *payload,
                                           std::size_t payload_size) {
@@ -131,8 +129,8 @@ EnqueueResult ConnectionProducer::Enqueue(Queue &queue, Event event,
         queue.RecordDrops(segments, payload_size);
         return {0, 0, segments, payload_size};
     }
-    event.sequence = m_next_sequence.fetch_add(segments,
-                                                std::memory_order_relaxed);
+    event.sequence =
+        m_next_sequence.fetch_add(segments, std::memory_order_relaxed);
     const EnqueueResult result = EnqueueIo(queue, event, payload, payload_size);
     m_lock.clear(std::memory_order_release);
     return result;

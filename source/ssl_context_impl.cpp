@@ -13,8 +13,8 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
-#include "networkmitm_ssl_context_impl.hpp"
-#include "shim/ssl_shim.h"
+#include "ssl_context_impl.hpp"
+#include "ssl_shim.h"
 #include <stratosphere.hpp>
 
 namespace ams::ssl::sf::impl {
