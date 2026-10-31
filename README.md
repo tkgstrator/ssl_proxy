@@ -1,12 +1,14 @@
 # ssl_proxy
 
-`ssl_proxy` is an Atmosphère sysmodule for an owned Nintendo Switch. When explicitly enabled, it proxies the Horizon `ssl` and `ssl:s` services, forwards SSL operations to the original service, and sends plaintext from successful `Read` and `Write` calls to a Mac receiver over an NMTS v1 TCP stream. The intended scope is **all clients** of both services, including system titles. It does not capture all Switch network traffic, Pia traffic, or Ethernet frames.
+[日本語版はこちら](README.ja.md)
 
-The sysmodule does not replace certificates or change SSL verification settings. Capture is best effort: a disconnected receiver or full queue can lose events without changing the SSL result returned to the client. The stream is plaintext and has no encryption or cryptographic peer authentication. It may contain credentials and tokens from games and system clients. Use it only on a trusted, closed LAN, restrict the receiver to the current Switch IPv4 address, and protect receiver output.
+`ssl_proxy` is an Atmosphère sysmodule for an owned Nintendo Switch. When explicitly enabled, it proxies Horizon's `ssl` and `ssl:s` services, forwards SSL operations transparently to the original system service, and streams plaintext data from successful `Read` and `Write` calls to a designated receiver over an NMTS v1 TCP stream. The intended scope encompasses **all clients** of both services, including system titles. It does not capture general Switch network traffic, Pia (peer-to-peer) traffic, or raw Ethernet frames.
+
+The sysmodule does not replace certificates or modify SSL verification settings. Capture operates on a best-effort basis: if the receiver disconnects or the export queue becomes full, events may be dropped without altering the SSL result returned to the application client. The TCP stream is transmitted as unencrypted plaintext without cryptographic peer authentication and may contain sensitive credentials or tokens. Use it only on a trusted, closed LAN, restrict receiver connections to the Switch's IP address, and safeguard captured output.
 
 ## Configuration
 
-Add this to `sd:/atmosphere/config/system_settings.ini`, using the **current** IPv4 address of the Mac receiver and its listening port:
+Add the following block to `sd:/atmosphere/config/system_settings.ini`, configuring the **current** IPv4 address and port of your receiver host:
 
 ```ini
 [ssl_proxy]
@@ -15,50 +17,62 @@ export_host = str!192.168.1.119
 export_port = u32!0x99E8
 ```
 
-`0x99E8` is port 39400. The MITM and stream are opt in: a missing or disabled `enabled` value or an invalid destination leaves the proxy inactive. Check both devices' current IPv4 addresses before use; a prior session's addresses can be stale. The old `[network_mitm]` settings are not used by this module.
+`0x99E8` corresponds to port 39400. Proxying and streaming are strictly opt-in: if `enabled` is missing, disabled (`0x0`), or points to an unreachable destination, the proxy remains inactive. Always verify both devices' active IPv4 addresses before testing, as DHCP leases may change across sessions. Legacy `[network_mitm]` configuration keys are not recognized.
 
-### Mac receiver
+### Stream receiver
 
-The NMTS v1 receiver currently exists only in the prepared InkScope receiver worktree; it is not available from the public InkScope `master` branch yet. From that worktree, start the receiver on the Mac before enabling the sysmodule, substituting verified local addresses and a new output path:
+The stream uses the NMTS v1 protocol over TCP. Any receiver implementing this protocol can collect and process captured payloads. InkScope is not required, though an implementation of the NMTS v1 receiver is available in [InkScope](https://github.com/tkgstrator/InkScope) via the `receive-mitm` command.
+
+Example of launching an NMTS v1 receiver with InkScope:
 
 ```sh
-cd /path/to/InkScope-receiver-worktree
 cargo run -p inkscope --locked -- receive-mitm \
   --bind-ip 192.168.1.119 --port 39400 \
   --allowed-peer 192.168.1.159 \
   --output-dir "$HOME/captures/mitm-$(date +%Y%m%d-%H%M%S)"
 ```
 
-The receiver creates private `ssl.pcap` and `ssl-events.jsonl` files. The PCAP uses USER0 records for SSL plaintext; the JSONL retains direction, identifiers, receipt time, and loss diagnostics. A `hello` frame proves only that the stream connected. A `data` frame proves that the hook observed an SSL call; neither proves completeness or that a particular game operation occurred. `loss` frames report cumulative queue drops where the sender can report them. A connection failure, sender startup failure, or process interruption may prevent complete loss reporting. Switch ticks are monotonic values, not UTC timestamps.
+A compliant receiver typically generates:
+- `ssl.pcap`: Captures SSL plaintext frames (e.g. using LINKTYPE_USER0 / DLT_USER0 records).
+- `ssl-events.jsonl`: Structured event metadata detailing stream direction, context/connection identifiers, receipt timestamps, and loss diagnostics.
 
-NMTS v1 frames use a four-byte big-endian length, a 52-byte header with `NMTS` magic and version, and at most 8192 data bytes per frame. Frame types are `hello`, `data`, and `loss`; directions distinguish client-to-server `Write` from server-to-client `Read`. The sender uses a bounded queue and reconnects in its own thread. This stream is separate from InkScope's ordinary Ethernet packet capture and does not require a GameKey or PiaKey.
+A `hello` frame confirms only that the TCP stream has been established. A `data` frame indicates that the hook intercepted an active SSL operation; neither confirms complete capture of an entire transaction or guarantees that a specific in-game action occurred. `loss` frames track cumulative buffer drops when the sysmodule queue overflows. System ticks are monotonic timer counts rather than absolute UTC timestamps.
 
-The `ssl_proxy/ssl_proxy.json` NPDM manifest still has the upstream broad filesystem and service permissions. Its permissions have not yet been narrowed through controlled runtime testing, although this code has no SD capture or certificate path.
+### NMTS v1 protocol overview
+
+NMTS v1 frames consist of:
+- A 4-byte big-endian payload length.
+- A 52-byte header with the `NMTS` magic, version indicator, monotonic tick, session IDs, and frame type.
+- Up to 8,192 data bytes per frame.
+
+Frame types include `hello`, `data`, and `loss`. Direction flags differentiate client-to-server (`Write`) from server-to-client (`Read`) transmissions. The sysmodule uses a bounded in-memory queue and handles reconnection asynchronously on a dedicated worker thread. This stream is independent of standard Ethernet capture tools and requires neither GameKey nor PiaKey.
+
+The `ssl_proxy/ssl_proxy.json` NPDM manifest currently retains upstream service and filesystem permissions; these permissions have not yet been narrowed through controlled runtime testing.
 
 ## Build
 
-The build uses Git submodules pinned to fixed commits:
+The build references Git submodules pinned to explicit commits:
 
 | Dependency | Commit |
 | --- | --- |
 | [Atmosphere-libs](https://github.com/Atmosphere-NX/Atmosphere-libs) | `cf48d23375cf36742876f4b014971b2ebabc6dc8` |
 | [libnx](https://github.com/switchbrew/libnx) | `b156b4774fb2df7b93402169509266da7547fc4c` |
 
-Clone with `git clone --recurse-submodules`, or run `git submodule update --init --recursive` in an existing checkout. `Atmosphere-libs` and `.deps/libnx` are recorded as gitlinks in this repository. The build image is pinned to `devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282`. Source revisions and the image are pinned; external package availability can still change, so this is not a fully reproducible build.
+Clone the repository recursively with `git clone --recurse-submodules`, or run `git submodule update --init --recursive` in an existing working copy. The build environment uses the pinned Docker image `devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282`.
 
-### Docker
+### Docker (Recommended)
 
-With Docker Compose installed, run:
+With Docker Compose available, run:
 
 ```sh
 docker compose run --rm devkit
 ```
 
-The pinned image already contains the required devkitPro tools and `switch-libjpeg-turbo`. The container initializes the pinned submodules, builds and installs pinned libnx inside the container, then runs `make`. The first run requires network access.
+The pinned container image includes necessary devkitPro toolchains and `switch-libjpeg-turbo`. The build script initializes submodules, compiles and installs the pinned libnx inside the container, and produces the sysmodule package.
 
 ### Local devkitPro
 
-Install devkitPro with `switch-dev` and `switch-libjpeg-turbo`, and provide the `DEVKITPRO` and `DEVKITA64` environment variables. Then run:
+Install devkitPro with `switch-dev` and `switch-libjpeg-turbo`, then ensure `DEVKITPRO` and `DEVKITA64` environment variables are properly exported:
 
 ```sh
 git submodule update --init --recursive
@@ -67,14 +81,14 @@ make -C .deps/libnx install
 make
 ```
 
-The libnx install command updates the local devkitPro installation. `make` also initializes submodules when needed, but expects the pinned libnx to have been installed in that toolchain.
-
-The release ZIP contains `atmosphere/contents/4200000000000666/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` naming both `ssl` and `ssl:s`. Here `exefs.nsp` is the **sysmodule** executable, not a game ExeFS/IPS patch. Title ID `4200000000000666` is the same as the old `network_mitm` sysmodule, so they cannot coexist; this artifact replaces the old module at that path. Building it does not place it on a Switch or prove runtime operation.
+The release ZIP archive contains `atmosphere/contents/4200000000000666/exefs.nsp`, `flags/boot2.flag`, and a `mitm.lst` targeting both `ssl` and `ssl:s`. Here `exefs.nsp` is the sysmodule binary itself, not an application patch. Title ID `4200000000000666` matches the legacy `network_mitm` module and will replace it if installed at the same path.
 
 ## CI and deployment
 
-`integration.yaml` runs the host tests and Switch package build for pull requests and pushes to `master`, then checks the ZIP contents before saving build artifacts. `deployment.yaml` runs only when manually dispatched with an existing version tag. It builds that tag in the same workflow run, verifies the source commit and package checksum, and creates or updates a **draft** GitHub Release. It refuses to alter an already published release.
+[`integration.yaml`](.github/workflows/integration.yaml) runs host unit tests and builds the Switch package on pull requests and pushes to `master`, validating the resulting ZIP archive contents.
+
+[`deployment.yaml`](.github/workflows/deployment.yaml) triggers via manual workflow dispatch targeting an existing version tag. It builds the tag cleanly, validates the source commit and package checksum, and creates or updates a **draft** GitHub Release without modifying published releases.
 
 ## Origin and license
 
-This is an independent source snapshot based on [nookingtons/network_mitm](https://github.com/nookingtons/network_mitm) at commit [`7dd6d036feb7bd4bdaca364dc589752bde9e36cf`](https://github.com/nookingtons/network_mitm/commit/7dd6d036feb7bd4bdaca364dc589752bde9e36cf), with later local stream work and the changes described in [UPSTREAM.md](UPSTREAM.md). Its Git history does not contain upstream ancestry. Original copyright notices remain in the source. The project remains licensed under GPLv2; see [LICENSE](LICENSE).
+This repository is an independent snapshot based on [nookingtons/network_mitm](https://github.com/nookingtons/network_mitm) at commit [`7dd6d036feb7bd4bdaca364dc589752bde9e36cf`](https://github.com/nookingtons/network_mitm/commit/7dd6d036feb7bd4bdaca364dc589752bde9e36cf), incorporating subsequent local streaming additions detailed in [UPSTREAM.md](UPSTREAM.md). Upstream Git commit history is omitted. Original copyright notices remain preserved in source files. Licensed under GPL-2.0-only; see [LICENSE](LICENSE).
